@@ -62,9 +62,9 @@ namespace server
 
                 var section = document.GetSections().Single(z => z.Section == value.Section);
 
-                var end = document.GetValues()
-                    .Where(x => x.Section == value.Section)
-                    .MaxBy(z => z.ValueLocation.End).FirstOrDefault();
+                var end = Enumerable.MaxBy(document.GetValues()
+                    .Where(x => x.Section == value.Section),
+                    z => z.ValueLocation.End);
                 if (end != null)
                 {
                     ranges.Add(((section.Location.Start.Line, section.Location.Start.Character - 1), end.ValueLocation.End));
