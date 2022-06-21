@@ -11,6 +11,8 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
+using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,13 +58,20 @@ namespace server
                     _ = Task.Run(async () =>
                     {
                         // TODO: handle client disconnect etc.
+                        
+                        var server = LanguageServer.Create(
+                            options => ConfigureServer(
+                                options, 
+                                webSocket.AsPipeReader(), 
+                                webSocket.AsPipeWriter()
+                            )
+                        );
 
-                        var server = await LanguageServer.From(options => ConfigureServer(options, webSocket.AsPipeReader(), webSocket.AsPipeWriter()));
-                        _clients.TryAdd(clientId, server);
+                        
 
-                        //while (webSocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested) { }
+                        await server.Initialize(CancellationToken.None);
 
-                        //server.ForcefulShutdown();
+                        await server.WaitForExit;
 
                     });
                 }
@@ -72,20 +81,18 @@ namespace server
         public static void ConfigureServer(LanguageServerOptions options, PipeReader input, PipeWriter output)
         {
             options
-                .WithInput(input)
-                .WithOutput(output)
-                .ConfigureLogging(
-                    x => x
-                        .ClearProviders()
-                        .AddLanguageProtocolLogging()
-                        .SetMinimumLevel(LogLevel.Debug)
-                )
+                //.ConfigureLogging(
+                //    x => x
+                //        .ClearProviders()
+                //        .AddLanguageProtocolLogging()
+                //        .SetMinimumLevel(LogLevel.Debug)
+                //)
                 .WithServices(services =>
                 {
                     services
                         .AddSingleton<TextDocumentStore>()
                          .AddSingleton<CompletionProvider>()
-                         .AddSingleton<HoverProvider>()
+                          .AddSingleton<HoverProvider>()
                          .AddSingleton<TokenProvider>()
                          .AddSingleton<OutlineProvider>()
                          .AddSingleton<CodeActionProvider>()
@@ -93,17 +100,26 @@ namespace server
                          .AddSingleton<CodeLensProvider>()
                          .AddSingleton<FoldingRangeProvider>()
                          .AddSingleton<SelectionRangeProvider>()
-                        //.ConfigureSection<IniConfiguration>("ini")
-                        //.ConfigureSection<NinConfiguration>("nin")
+                        .ConfigureSection<IniConfiguration>("ini")
+                        .ConfigureSection<NinConfiguration>("nin")
                         ;
                 })
-                //.WithConfigurationSection("ini")
-                //.WithConfigurationSection("nin")
-                .OnInitialized((instance, client, server, ct) =>
-                {
-                    
-                    return Task.CompletedTask;
-                });
+ .WithConfigurationSection("ini")
+                .WithConfigurationSection("nin")
+ .OnInitialized((instance, client, server, ct) =>
+ {
+     //// Bug in visual studio support where CodeActionKind.Empty is not supported, and throws (instead of gracefully ignoring it)
+     //if (server?.Capabilities?.CodeActionProvider?.Value?.CodeActionKinds != null)
+     //{
+     //    server.Capabilities.CodeActionProvider.Value.CodeActionKinds = server.Capabilities.CodeActionProvider.Value.CodeActionKinds.ToImmutableArray().Remove(CodeActionKind.Empty).ToArray();
+     //}
+     server.Capabilities.TextDocumentSync.Kind = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.TextDocumentSyncKind.Full;
+     return Task.CompletedTask;
+ }); 
+
+            options
+                .WithInput(input)
+                .WithOutput(output);
         }
 
         public Task StopAsync(CancellationToken cancellationToken)

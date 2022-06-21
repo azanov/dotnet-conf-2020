@@ -16,7 +16,7 @@ using System.Buffers;
 
 namespace server
 {
-    class TextDocumentStore : ITextDocumentSyncHandler
+    public class TextDocumentStore : ITextDocumentSyncHandler
     {
         private readonly TextDocumentChangeRegistrationOptions _options;
         private readonly TextDocumentSaveRegistrationOptions _saveOptions;
@@ -30,12 +30,14 @@ namespace server
             _options = new TextDocumentChangeRegistrationOptions()
             {
                 DocumentSelector = new DocumentSelector(DocumentSelector.ForPattern("**/*.ini", "**/*.nin").Concat(DocumentSelector.ForScheme("ini"))),
-                SyncKind = TextDocumentSyncKind.Incremental
+                SyncKind = TextDocumentSyncKind.Incremental,
             };
+            
             _saveOptions = new TextDocumentSaveRegistrationOptions()
             {
                 DocumentSelector = _options.DocumentSelector,
-                IncludeText = true
+                IncludeText = true,
+                
             };
             this.languageServer = languageServer;
         }

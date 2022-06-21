@@ -1,11 +1,11 @@
 namespace server
 {
-    class IniConfiguration
+    public class IniConfiguration
     {
         public bool Rainbow { get; set; }
     }
 
-    class NinConfiguration
+    public class NinConfiguration
     {
         public bool Hardrock { get; set; }
     }

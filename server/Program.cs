@@ -25,6 +25,7 @@ namespace server
             IHostBuilder hostBuilder = Host.CreateDefaultBuilder(args)
            .ConfigureServices(services =>
            {
+               
                services.AddSingleton<LSPSocketServer>();
                services.AddHostedService<LSPSocketServer>();
            });

@@ -18,7 +18,7 @@ using System.Buffers;
 
 namespace server
 {
-    class TokenProvider : SemanticTokensHandlerBase
+    public class TokenProvider : SemanticTokensHandlerBase
     {
         private readonly TextDocumentStore store;
         private readonly IOptionsMonitor<IniConfiguration> optionsMonitor;
@@ -34,6 +34,7 @@ namespace server
             Legend = new SemanticTokensLegend()
         })
         {
+            
             this.store = store;
             this.optionsMonitor = optionsMonitor;
             var currentState = optionsMonitor.CurrentValue.Rainbow;
