@@ -10,15 +10,15 @@ using System.Linq;
 using System.Collections.Immutable;
 using parser;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
-using OmniSharp.Extensions.LanguageServer.Protocol.Document.Proposals;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models.Proposals;
 using System.Buffers;
 
 namespace server
 {
     public class TextDocumentStore : ITextDocumentSyncHandler
     {
-        private readonly TextDocumentChangeRegistrationOptions _options;
+        private readonly TextDocumentCloseRegistrationOptions _closeOptions;
+        private readonly TextDocumentOpenRegistrationOptions _openOptions;
+        private readonly TextDocumentChangeRegistrationOptions _changeOptions;
         private readonly TextDocumentSaveRegistrationOptions _saveOptions;
         private readonly ILanguageServerFacade languageServer;
         private SynchronizationCapability _capability;
@@ -27,15 +27,23 @@ namespace server
 
         public TextDocumentStore(ILanguageServerFacade languageServer)
         {
-            _options = new TextDocumentChangeRegistrationOptions()
+            var selector = new DocumentSelector(DocumentSelector.ForPattern("**/*.ini", "**/*.nin").Concat(DocumentSelector.ForScheme("ini")));
+            _changeOptions = new TextDocumentChangeRegistrationOptions()
             {
-                DocumentSelector = new DocumentSelector(DocumentSelector.ForPattern("**/*.ini", "**/*.nin").Concat(DocumentSelector.ForScheme("ini"))),
+                DocumentSelector = selector,
                 SyncKind = TextDocumentSyncKind.Incremental,
             };
-            
+            _openOptions = new TextDocumentOpenRegistrationOptions()
+            {
+                DocumentSelector = selector
+            };
+            _closeOptions = new TextDocumentCloseRegistrationOptions()
+            {
+                DocumentSelector = selector
+            };
             _saveOptions = new TextDocumentSaveRegistrationOptions()
             {
-                DocumentSelector = _options.DocumentSelector,
+                DocumentSelector = selector,
                 IncludeText = true,
                 
             };
@@ -148,10 +156,27 @@ namespace server
         }
 
         public void SetCapability(SynchronizationCapability capability) { _capability = capability; }
-        public TextDocumentChangeRegistrationOptions GetRegistrationOptions() { return _options; }
+        public TextDocumentChangeRegistrationOptions GetRegistrationOptions() { return _changeOptions; }
 
-        TextDocumentRegistrationOptions IRegistration<TextDocumentRegistrationOptions>.GetRegistrationOptions() { return _options; }
+        
+        public TextDocumentChangeRegistrationOptions GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return _changeOptions;
+        }
 
-        TextDocumentSaveRegistrationOptions IRegistration<TextDocumentSaveRegistrationOptions>.GetRegistrationOptions() { return _saveOptions; }
+        TextDocumentOpenRegistrationOptions IRegistration<TextDocumentOpenRegistrationOptions, SynchronizationCapability>.GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return _openOptions;
+        }
+
+        TextDocumentCloseRegistrationOptions IRegistration<TextDocumentCloseRegistrationOptions, SynchronizationCapability>.GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return _closeOptions;
+        }
+
+        TextDocumentSaveRegistrationOptions IRegistration<TextDocumentSaveRegistrationOptions, SynchronizationCapability>.GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return _saveOptions;
+        }
     }
 }

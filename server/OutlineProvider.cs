@@ -5,18 +5,15 @@ using System.Threading;
 using System.Linq;
 using System.Buffers;
 using System;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 
 namespace server
 {
-    class OutlineProvider : DocumentSymbolHandler
+    class OutlineProvider : DocumentSymbolHandlerBase
     {
         private readonly TextDocumentStore store;
 
-        public OutlineProvider(TextDocumentStore store) : base(new DocumentSymbolRegistrationOptions()
-        {
-            DocumentSelector = store.GetRegistrationOptions().DocumentSelector,
-            Label = "NIN"
-        })
+        public OutlineProvider(TextDocumentStore store) : base()
         {
             this.store = store;
         }
@@ -32,7 +29,7 @@ namespace server
                     var children = document.GetValues()
                         .Where(z => z.Section == section.Section)
                         .ToArray();
-                    return new DocumentSymbol()
+                    return new SymbolInformationOrDocumentSymbol(new DocumentSymbol()
                     {
                         Name = section.Section,
                         Kind = SymbolKind.Namespace,
@@ -56,20 +53,20 @@ namespace server
                                                         }).ToArray()
                                             })
                                             .ToArray()
-                    };
+                    });
                 })
                 .ToArray();
 
-            // Visual Studio doesn't support the hierarchy
-            if (!Capability.HierarchicalDocumentSymbolSupport)
-            {
-                symbols = symbols
-                    .Expand(z => z.Children?.ToArray() ?? Array.Empty<DocumentSymbol>())
-                    .Do(x => x.Children = null)
-                    .ToArray();
-            }
+            return new SymbolInformationOrDocumentSymbolContainer(symbols);
+        }
 
-            return symbols;
+        protected override DocumentSymbolRegistrationOptions CreateRegistrationOptions(DocumentSymbolCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new DocumentSymbolRegistrationOptions()
+            {
+                DocumentSelector = store.GetRegistrationOptions().DocumentSelector,
+                Label = "NIN"
+            };
         }
     }
 }

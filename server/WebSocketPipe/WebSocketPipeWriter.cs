@@ -63,6 +63,7 @@ internal sealed class WebSocketPipeWriter : PipeWriter
 			{
 				// workaround to filter non-json messages
 				// if (memory.Span[0] != 123) continue;
+
 				await InternalWebSocket.SendAsync(memory, WebSocketMessageType.Text, true, cancellationToken);
 			}
 

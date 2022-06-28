@@ -6,18 +6,16 @@ using System.Linq;
 using parser;
 using System.Collections.Generic;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 
 namespace server
 {
-    class SelectionRangeProvider : SelectionRangeHandler
+    class SelectionRangeProvider : SelectionRangeHandlerBase
     {
 
         private readonly TextDocumentStore store;
 
-        public SelectionRangeProvider(TextDocumentStore store) : base(new SelectionRangeRegistrationOptions()
-        {
-            DocumentSelector = store.GetRegistrationOptions().DocumentSelector
-        })
+        public SelectionRangeProvider(TextDocumentStore store) : base()
         {
             this.store = store;
         }
@@ -78,6 +76,14 @@ namespace server
                 });
                 return result;
             }
+        }
+
+        protected override SelectionRangeRegistrationOptions CreateRegistrationOptions(SelectionRangeCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new SelectionRangeRegistrationOptions()
+            {
+                DocumentSelector = store.GetRegistrationOptions().DocumentSelector
+            };
         }
     }
 }

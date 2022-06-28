@@ -5,24 +5,22 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using System.Threading;
 using System.Linq;
 using System.Buffers;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 
 namespace server
 {
-    class CodeLensProvider : CodeLensHandlerBase<CodeLensProvider.CodeLensData>
+    internal class CodeLensProvider : CodeLensHandlerBase<CodeLensProvider.CodeLensData>
     {
 
-        public class CodeLensData : HandlerIdentity
+        public class CodeLensData : IHandlerIdentity
         {
             public DocumentUri Uri { get; set; }
             public string Section { get; set; }
+            public string __identity { get => throw new System.NotImplementedException(); init => throw new System.NotImplementedException(); }
         }
         private readonly TextDocumentStore store;
 
-        public CodeLensProvider(TextDocumentStore store) : base(new CodeLensRegistrationOptions()
-        {
-            DocumentSelector = store.GetRegistrationOptions().DocumentSelector,
-            ResolveProvider = true
-        })
+        public CodeLensProvider(TextDocumentStore store) : base()
         {
             this.store = store;
         }
@@ -43,8 +41,17 @@ namespace server
         {
             await Task.Yield();
             if (!store.TryGetDocument(request.Data.Uri, out var document)) return request;
-            request.Command = new Command() { Title = $"🔑 {document.GetValues().Count(x => x.Section == request.Data.Section)} Values" };
+            
             return request;
+        }
+
+        protected override CodeLensRegistrationOptions CreateRegistrationOptions(CodeLensCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new CodeLensRegistrationOptions()
+            {
+                DocumentSelector = store.GetRegistrationOptions().DocumentSelector,
+                ResolveProvider = true
+            };
         }
     }
 }

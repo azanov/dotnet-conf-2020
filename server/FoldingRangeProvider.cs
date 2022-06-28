@@ -4,18 +4,16 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using System.Threading;
 using System.Linq;
 using System.Buffers;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 
 namespace server
 {
-    class FoldingRangeProvider : FoldingRangeHandler
+    class FoldingRangeProvider : FoldingRangeHandlerBase
     {
 
         private readonly TextDocumentStore store;
 
-        public FoldingRangeProvider(TextDocumentStore store) : base(new FoldingRangeRegistrationOptions()
-        {
-            DocumentSelector = store.GetRegistrationOptions().DocumentSelector
-        })
+        public FoldingRangeProvider(TextDocumentStore store) : base()
         {
             this.store = store;
         }
@@ -46,6 +44,14 @@ namespace server
                 }
                 )
                 .ToArray();
+        }
+
+        protected override FoldingRangeRegistrationOptions CreateRegistrationOptions(FoldingRangeCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new FoldingRangeRegistrationOptions()
+            {
+                DocumentSelector = store.GetRegistrationOptions().DocumentSelector
+            };
         }
     }
 }

@@ -9,52 +9,30 @@ using parser;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using System.Security.Cryptography;
 using System.Text;
-using OmniSharp.Extensions.LanguageServer.Protocol.Document.Proposals;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models.Proposals;
-using OmniSharp.Extensions.LanguageServer.Protocol.Workspace.Proposals;
 using System.Collections.Generic;
 using Microsoft.Extensions.Options;
 using System.Buffers;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 
 namespace server
 {
     public class TokenProvider : SemanticTokensHandlerBase
     {
         private readonly TextDocumentStore store;
-        private readonly IOptionsMonitor<IniConfiguration> optionsMonitor;
 
-        public TokenProvider(TextDocumentStore store, IOptionsMonitor<IniConfiguration> optionsMonitor, IWorkspaceLanguageServer textDocumentLanguageServer) : base(new SemanticTokensRegistrationOptions()
+        public TokenProvider(TextDocumentStore store, IWorkspaceLanguageServer textDocumentLanguageServer) : base()
         {
-            DocumentSelector = store.GetRegistrationOptions().DocumentSelector,
-            Full = new SemanticTokensCapabilityRequestFull()
-            {
-                Delta = true
-            },
-            Range = new SemanticTokensCapabilityRequestRange() { },
-            Legend = new SemanticTokensLegend()
-        })
-        {
-            
+
             this.store = store;
-            this.optionsMonitor = optionsMonitor;
-            var currentState = optionsMonitor.CurrentValue.Rainbow;
-            optionsMonitor.OnChange(config =>
-            {
-                if (config.Rainbow != currentState)
-                {
-                    textDocumentLanguageServer.RequestSemanticTokensRefresh(new SemanticTokensRefreshParams());
-                    currentState = config.Rainbow;
-                }
-            });
         }
 
         protected override async Task<SemanticTokensDocument> GetSemanticTokensDocument(ITextDocumentIdentifierParams @params, CancellationToken cancellationToken)
         {
 
             await Task.Yield();
-            if (!store.TryGetTokenDocument(@params.TextDocument.Uri, GetRegistrationOptions(), out var document))
+            if (!store.TryGetTokenDocument(@params.TextDocument.Uri, RegistrationOptions, out var document))
             {
-                return new SemanticTokensDocument(GetRegistrationOptions());
+                return new SemanticTokensDocument(this.RegistrationOptions);
             }
             return document;
         }
@@ -105,7 +83,7 @@ namespace server
 
         protected override Task Tokenize(SemanticTokensBuilder builder, ITextDocumentIdentifierParams identifier, CancellationToken cancellationToken)
         {
-            var legend = GetRegistrationOptions().Legend;
+            var legend = RegistrationOptions.Legend;
             if (!store.TryGetDocument(identifier.TextDocument.Uri, out var document)) return Task.CompletedTask;
             var text = document.GetText().AsSpan();
 
@@ -117,57 +95,54 @@ namespace server
                 start += count;
             }
 
-            if (optionsMonitor.CurrentValue.Rainbow)
+            var rainbowTokenizer = TokenizeRainbow(legend);
+            while (!text.IsEmpty)
             {
-                var rainbowTokenizer = TokenizeRainbow(legend);
-                while (!text.IsEmpty)
-                {
-                    var sectionIndex = text.IndexOf('[');
-                    var spaceIndex = text.IndexOfAny(' ', '=', '\n');
+                var sectionIndex = text.IndexOf('[');
+                var spaceIndex = text.IndexOfAny(' ', '=', '\n');
 
-                    var first = Math.Min(sectionIndex, spaceIndex);
-                    if (first > -1 || spaceIndex > -1 || sectionIndex > -1)
+                var first = Math.Min(sectionIndex, spaceIndex);
+                if (first > -1 || spaceIndex > -1 || sectionIndex > -1)
+                {
+                    if (first == -1) first = Math.Max(spaceIndex, sectionIndex);
+                    if (first == sectionIndex)
                     {
-                        if (first == -1) first = Math.Max(spaceIndex, sectionIndex);
-                        if (first == sectionIndex)
-                        {
-                            var endIndex = text.IndexOf(']');
-                            if (endIndex > -1 && endIndex < text.IndexOf('\n'))
-                            {
-                                var type = rainbowTokenizer();
-                                var pos = document.GetPositionAtIndex(start + first + 1);
-                                builder.Push(pos.Line, pos.Character, endIndex - first - 1, type, SemanticTokenModifier.Static);
-                                advanceBy(ref text, endIndex + 1);
-                            }
-                        }
-                        else
+                        var endIndex = text.IndexOf(']');
+                        if (endIndex > -1 && endIndex < text.IndexOf('\n'))
                         {
                             var type = rainbowTokenizer();
-                            var pos = document.GetPositionAtIndex(start);
-                            builder.Push(pos.Line, pos.Character, first, type, SemanticTokenModifier.Static);
-                            advanceBy(ref text, first + 1);
-
-                            var next = text.IndexOfAny(' ', '=', '\n');
-                            if (next == -1) break;
-                            // advanceBy(ref text, next);
-
-                            // var (modifier, type) = rainbowTokenizer();
-                            // var pos = document.GetPositionAtIndex(start + first);
-                            // builder.Push(pos.Line, pos.Character, next, type, modifier);
-
-                            // advanceBy(ref text, next + 1);
-                            continue;
+                            var pos = document.GetPositionAtIndex(start + first + 1);
+                            builder.Push(pos.Line, pos.Character, endIndex - first - 1, type, SemanticTokenModifier.Static);
+                            advanceBy(ref text, endIndex + 1);
                         }
-
-                        var end = text.IndexOf('\n');
-                        if (end == -1) break;
-
-                        advanceBy(ref text, end + 1);
                     }
                     else
                     {
-                        break;
+                        var type = rainbowTokenizer();
+                        var pos = document.GetPositionAtIndex(start);
+                        builder.Push(pos.Line, pos.Character, first, type, SemanticTokenModifier.Static);
+                        advanceBy(ref text, first + 1);
+
+                        var next = text.IndexOfAny(' ', '=', '\n');
+                        if (next == -1) break;
+                        // advanceBy(ref text, next);
+
+                        // var (modifier, type) = rainbowTokenizer();
+                        // var pos = document.GetPositionAtIndex(start + first);
+                        // builder.Push(pos.Line, pos.Character, next, type, modifier);
+
+                        // advanceBy(ref text, next + 1);
+                        continue;
                     }
+
+                    var end = text.IndexOf('\n');
+                    if (end == -1) break;
+
+                    advanceBy(ref text, end + 1);
+                }
+                else
+                {
+                    break;
                 }
             }
 
@@ -220,6 +195,20 @@ namespace server
             }
 
             return Task.CompletedTask;
+        }
+
+        protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(SemanticTokensCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new SemanticTokensRegistrationOptions()
+            {
+                DocumentSelector = store.GetRegistrationOptions().DocumentSelector,
+                Full = new SemanticTokensCapabilityRequestFull()
+                {
+                    Delta = true
+                },
+                Range = new SemanticTokensCapabilityRequestRange() { },
+                Legend = new SemanticTokensLegend()
+            };
         }
     }
 }

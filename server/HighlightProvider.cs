@@ -4,17 +4,15 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using System.Threading;
 using System.Linq;
 using System.Buffers;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 
 namespace server
 {
-    class HighlightProvider : DocumentHighlightHandler
+    class HighlightProvider : DocumentHighlightHandlerBase
     {
         private readonly TextDocumentStore store;
 
-        public HighlightProvider(TextDocumentStore store) : base(new DocumentHighlightRegistrationOptions()
-        {
-            DocumentSelector = store.GetRegistrationOptions().DocumentSelector,
-        })
+        public HighlightProvider(TextDocumentStore store) : base()
         {
             this.store = store;
         }
@@ -42,6 +40,14 @@ namespace server
                         Range = z.Location
                     }))
                 .ToArray();
+        }
+
+        protected override DocumentHighlightRegistrationOptions CreateRegistrationOptions(DocumentHighlightCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new DocumentHighlightRegistrationOptions()
+            {
+                DocumentSelector = store.GetRegistrationOptions().DocumentSelector,
+            };
         }
     }
 }

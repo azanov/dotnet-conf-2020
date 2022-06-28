@@ -122,7 +122,7 @@ namespace parser
             var sections = ImmutableArray<NinSection>.Empty.ToBuilder();
 
             string sectionPrefix = string.Empty;
-            var lines = _content.Split(new[] { Environment.NewLine }, StringSplitOptions.TrimEntries);
+            var lines = _content.Split(new[] { '\n' }, StringSplitOptions.TrimEntries);
             for (var lineNumber = 0; lineNumber < lines.Length; lineNumber++)
             {
                 // shameless stolen from https://github.com/dotnet/runtime/blob/master/src/libraries/Microsoft.Extensions.Configuration.Ini/src/IniStreamConfigurationProvider.cs

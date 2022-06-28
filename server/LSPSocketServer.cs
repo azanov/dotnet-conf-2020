@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
+using Serilog;
 using server.WebSocketPipe;
 using System;
 using System.Collections.Generic;
@@ -24,7 +25,7 @@ namespace server
         //private readonly ILogger<LSPSocketServer> Logger;
         private readonly HttpListener HttpListener = new();
 
-        public LSPSocketServer(ILogger<LSPSocketServer> logger)
+        public LSPSocketServer()
         {
             //Logger = logger ?? throw new ArgumentNullException(nameof(logger));
             HttpListener.Prefixes.Add("http://localhost:9000/");
@@ -34,6 +35,14 @@ namespace server
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
+
+            Log.Logger = new LoggerConfiguration()
+                        .Enrich.FromLogContext()
+                        .WriteTo.File("log.txt", rollingInterval: RollingInterval.Day)
+                        .MinimumLevel.Verbose()
+                        .CreateLogger();
+
+
             //Logger.LogInformation("Started");
             HttpListener.Start();
             while (!cancellationToken.IsCancellationRequested)
@@ -54,24 +63,28 @@ namespace server
 
                     string clientId = Guid.NewGuid().ToString();
                     WebSocket webSocket = webSocketContext.WebSocket;
-                    
+
                     _ = Task.Run(async () =>
                     {
                         // TODO: handle client disconnect etc.
-                        
-                        var server = LanguageServer.Create(
+
+                        var server = LanguageServer.PreInit(
                             options => ConfigureServer(
-                                options, 
-                                webSocket.AsPipeReader(), 
+                                options,
+                                webSocket.AsPipeReader(),
                                 webSocket.AsPipeWriter()
                             )
                         );
 
-                        
 
                         await server.Initialize(CancellationToken.None);
 
-                        await server.WaitForExit;
+                        //await server.Start;
+
+
+                        
+
+                        await server.WasShutDown;
 
                     });
                 }
@@ -81,41 +94,66 @@ namespace server
         public static void ConfigureServer(LanguageServerOptions options, PipeReader input, PipeWriter output)
         {
             options
-                //.ConfigureLogging(
-                //    x => x
-                //        .ClearProviders()
-                //        .AddLanguageProtocolLogging()
-                //        .SetMinimumLevel(LogLevel.Debug)
-                //)
+                .ConfigureLogging(
+                            x => x
+                            .ClearProviders()
+                                .AddSerilog(Log.Logger)
+                                .AddLanguageProtocolLogging()
+                                .SetMinimumLevel(LogLevel.Debug)
+
+                        )
+                //.WithHandler<TextDocumentStore>()
+                //.WithHandler<HoverProvider>()
                 .WithServices(services =>
                 {
                     services
                         .AddSingleton<TextDocumentStore>()
-                         .AddSingleton<CompletionProvider>()
+                           //.AddSingleton<CompletionProvider>()
                           .AddSingleton<HoverProvider>()
                          .AddSingleton<TokenProvider>()
                          .AddSingleton<OutlineProvider>()
-                         .AddSingleton<CodeActionProvider>()
-                         .AddSingleton<CodeActionProvider.CommandHandler>()
+                         //.AddSingleton<CodeActionProvider>()
+                         //.AddSingleton<CodeActionProvider.CommandHandler>()
                          .AddSingleton<CodeLensProvider>()
                          .AddSingleton<FoldingRangeProvider>()
                          .AddSingleton<SelectionRangeProvider>()
+
                         .ConfigureSection<IniConfiguration>("ini")
                         .ConfigureSection<NinConfiguration>("nin")
                         ;
                 })
  .WithConfigurationSection("ini")
                 .WithConfigurationSection("nin")
- .OnInitialized((instance, client, server, ct) =>
- {
-     //// Bug in visual studio support where CodeActionKind.Empty is not supported, and throws (instead of gracefully ignoring it)
-     //if (server?.Capabilities?.CodeActionProvider?.Value?.CodeActionKinds != null)
-     //{
-     //    server.Capabilities.CodeActionProvider.Value.CodeActionKinds = server.Capabilities.CodeActionProvider.Value.CodeActionKinds.ToImmutableArray().Remove(CodeActionKind.Empty).ToArray();
-     //}
-     server.Capabilities.TextDocumentSync.Kind = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.TextDocumentSyncKind.Full;
-     return Task.CompletedTask;
- }); 
+                .OnStarted((server, cancellationToken) =>
+                {
+                    server.Register(r =>
+                    {
+                        r.AddHandler<TextDocumentStore>();
+                    });
+
+                    return Task.CompletedTask;
+                })
+ //.OnInitialized((instance, client, server, ct) =>
+ //{
+ //    //Task.Run(async () =>
+ //    //{
+ //    //    await instance.WasStarted;
+
+ //    //});
+ //    //// Bug in visual studio support where CodeActionKind.Empty is not supported, and throws (instead of gracefully ignoring it)
+ //    //if (server?.Capabilities?.CodeActionProvider?.Value?.CodeActionKinds != null)
+ //    //{
+ //    //    server.Capabilities.CodeActionProvider.Value.CodeActionKinds = server.Capabilities.CodeActionProvider.Value.CodeActionKinds.ToImmutableArray().Remove(CodeActionKind.Empty).ToArray();
+ //    //}
+ //    //server.Capabilities.SemanticTokensProvider = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Proposals.SemanticTokensRegistrationOptions.StaticOptions();
+
+
+
+ //    //server.Capabilities.HoverProvider = new BooleanOr<HoverRegistrationOptions.StaticOptions>(true);
+ //    //server.Capabilities.TextDocumentSync.Kind = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.TextDocumentSyncKind.Full;
+ //    return Task.CompletedTask;
+ //})
+ ;
 
             options
                 .WithInput(input)

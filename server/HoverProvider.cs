@@ -3,24 +3,23 @@ using System.Threading.Tasks;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using System.Threading;
 using parser;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 
 namespace server
 {
-    class HoverProvider : HoverHandler
+    class HoverProvider : OmniSharp.Extensions.LanguageServer.Protocol.Document.HoverHandlerBase
     {
         private readonly TextDocumentStore store;
 
-        public HoverProvider(TextDocumentStore store) : base(new HoverRegistrationOptions()
-        {
-            DocumentSelector = store.GetRegistrationOptions().DocumentSelector
-        })
+        public HoverProvider(TextDocumentStore store) : base()
         {
             this.store = store;
         }
 
         public override async Task<Hover> Handle(HoverParams request, CancellationToken cancellationToken)
         {
-            if (!store.TryGetDocument(request.TextDocument.Uri, out var document)) return null;
+            if (!store.TryGetDocument(request.TextDocument.Uri, out var document)) 
+                return null;
             var item = document.GetItemAtPosition(request.Position);
             return item switch
             {
@@ -38,6 +37,14 @@ namespace server
                     Contents = new MarkedStringsOrMarkupContent(new MarkedString($"section: {s.Section}"))
                 },
                 _ => null
+            };
+        }
+
+        protected override HoverRegistrationOptions CreateRegistrationOptions(HoverCapability capability, ClientCapabilities clientCapabilities)
+        {
+            return new HoverRegistrationOptions()
+            {
+                DocumentSelector = store.GetRegistrationOptions().DocumentSelector
             };
         }
     }
