@@ -16,7 +16,14 @@ namespace server
         {
             public DocumentUri Uri { get; set; }
             public string Section { get; set; }
-            public string __identity { get => throw new System.NotImplementedException(); init => throw new System.NotImplementedException(); }
+            public string __identity
+            {
+                get
+                {
+                    return "";
+                }
+                init { }
+            }
         }
         private readonly TextDocumentStore store;
 
@@ -41,7 +48,7 @@ namespace server
         {
             await Task.Yield();
             if (!store.TryGetDocument(request.Data.Uri, out var document)) return request;
-            
+
             return request;
         }
 

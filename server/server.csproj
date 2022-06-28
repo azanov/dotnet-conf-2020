@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="WebSocketPipe\WebSocketPipe.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="bogus" Version="34.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
@@ -18,6 +22,7 @@
     
     <PackageReference Include="System.Interactive" Version="6.0.1" />
     <PackageReference Include="System.Interactive.Async" Version="6.0.1" />
+    
   </ItemGroup>
 
   <ItemGroup>

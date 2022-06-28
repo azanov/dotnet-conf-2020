@@ -54,7 +54,7 @@ namespace server
         Func<SemanticTokenType> TokenizeRainbow(SemanticTokensLegend legend)
         {
 
-            // var modifiers = legend.TokenModifiers.Select(z => (SemanticTokenModifier)z).Repeat().GetEnumerator();
+            var modifiers = legend.TokenModifiers.Select(z => (SemanticTokenModifier)z).Repeat().GetEnumerator();
             var types = legend.TokenTypes
                 .Select(z => (SemanticTokenType)z)
                 .OrderBy(z => z.ToString())
@@ -66,7 +66,7 @@ namespace server
             {
                 while (true)
                 {
-                    // modifiers.MoveNext();
+                    modifiers.MoveNext();
                     types.MoveNext();
                     yield return types.Current;
                 }

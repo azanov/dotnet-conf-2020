@@ -1,10 +1,11 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Devlooped.Net;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
 using Serilog;
-using server.WebSocketPipe;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -12,6 +13,7 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Text;
@@ -64,29 +66,35 @@ namespace server
                     string clientId = Guid.NewGuid().ToString();
                     WebSocket webSocket = webSocketContext.WebSocket;
 
+
+                    var pipe = WebSocketPipe.Create(webSocket);
+
+                    _ = Task.Run(async () => await pipe.RunAsync());
+
                     _ = Task.Run(async () =>
-                    {
-                        // TODO: handle client disconnect etc.
-
-                        var server = LanguageServer.PreInit(
-                            options => ConfigureServer(
-                                options,
-                                webSocket.AsPipeReader(),
-                                webSocket.AsPipeWriter()
-                            )
-                        );
+                      {
+                          // TODO: handle client disconnect etc.
 
 
-                        await server.Initialize(CancellationToken.None);
+                          var server = LanguageServer.Create(
+                              options => ConfigureServer(
+                                  options,
+                                  pipe.Input,
+                                  pipe.Output
+                              )
+                          );
 
-                        //await server.Start;
+
+                          await server.Initialize(CancellationToken.None);
+
+                          await server.Start;
 
 
-                        
 
-                        await server.WasShutDown;
 
-                    });
+                          
+
+                      });
                 }
             }
         }
@@ -94,44 +102,31 @@ namespace server
         public static void ConfigureServer(LanguageServerOptions options, PipeReader input, PipeWriter output)
         {
             options
-                .ConfigureLogging(
-                            x => x
-                            .ClearProviders()
-                                .AddSerilog(Log.Logger)
-                                .AddLanguageProtocolLogging()
-                                .SetMinimumLevel(LogLevel.Debug)
+                //.ConfigureLogging(
+                //            x => x
+                //            .ClearProviders()
+                //                .AddSerilog(Log.Logger)
+                //                .AddLanguageProtocolLogging()
+                //                .SetMinimumLevel(LogLevel.Debug)
 
-                        )
+                //        )
                 //.WithHandler<TextDocumentStore>()
-                //.WithHandler<HoverProvider>()
-                .WithServices(services =>
+                
+            .WithServices(services =>
                 {
                     services
                         .AddSingleton<TextDocumentStore>()
-                           //.AddSingleton<CompletionProvider>()
+                          //.AddSingleton<CompletionProvider>()
                           .AddSingleton<HoverProvider>()
-                         .AddSingleton<TokenProvider>()
-                         .AddSingleton<OutlineProvider>()
-                         //.AddSingleton<CodeActionProvider>()
-                         //.AddSingleton<CodeActionProvider.CommandHandler>()
-                         .AddSingleton<CodeLensProvider>()
-                         .AddSingleton<FoldingRangeProvider>()
-                         .AddSingleton<SelectionRangeProvider>()
+                        .AddSingleton<TokenProvider>()
+                        .AddSingleton<OutlineProvider>()
+                        //.AddSingleton<CodeActionProvider>()
+                        //.AddSingleton<CodeActionProvider.CommandHandler>()
+                        //.AddSingleton<CodeLensProvider>()
+                        .AddSingleton<FoldingRangeProvider>()
+                        //.AddSingleton<SelectionRangeProvider>()
 
-                        .ConfigureSection<IniConfiguration>("ini")
-                        .ConfigureSection<NinConfiguration>("nin")
                         ;
-                })
- .WithConfigurationSection("ini")
-                .WithConfigurationSection("nin")
-                .OnStarted((server, cancellationToken) =>
-                {
-                    server.Register(r =>
-                    {
-                        r.AddHandler<TextDocumentStore>();
-                    });
-
-                    return Task.CompletedTask;
                 })
  //.OnInitialized((instance, client, server, ct) =>
  //{
@@ -156,8 +151,8 @@ namespace server
  ;
 
             options
-                .WithInput(input)
-                .WithOutput(output);
+                .WithOutput(output)
+                .WithInput(input);
         }
 
         public Task StopAsync(CancellationToken cancellationToken)

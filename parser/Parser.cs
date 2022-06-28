@@ -153,6 +153,7 @@ namespace parser
                         diagnostics.Add(new Diagnostic()
                         {
                             Code = "NINWISH",
+
                             Message = "Key is not complete",
                             Severity = DiagnosticSeverity.Warning,
                             Range = ((lineNumber, 0), (lineNumber, line.Length)),
